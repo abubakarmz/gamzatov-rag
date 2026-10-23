@@ -1,0 +1,3 @@
+﻿model,mode,facts,correct,refusal,wrong,traps_ok,traps,avg_seconds
+qwen2.5:1.5b,memory,12,0,12,0,3,3,8.8
+qwen2.5:1.5b,rag,12,6,0,6,2,3,21.0

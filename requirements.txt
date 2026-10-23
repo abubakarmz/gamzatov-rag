@@ -1,0 +1,6 @@
+requests==2.34.2
+beautifulsoup4==4.15.0
+snowballstemmer==3.1.1
+matplotlib==3.11.2
+streamlit==1.66.1
+reportlab==5.1.0
