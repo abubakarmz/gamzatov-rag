@@ -104,6 +104,9 @@ PROMPT_NO_LIBRARY = (
     "Если ты не знаешь точного ответа, так и скажи: «Я не знаю»."
 )
 
+# Просто вопрос, без разрешения сказать «не знаю» — как в обычном чат-боте
+PROMPT_PLAIN = "Вопрос: {question}"
+
 PROMPT_WITH_LIBRARY = (
     "Ниже даны фрагменты из библиотеки. Ответь на вопрос, используя ТОЛЬКО эти фрагменты.\n"
     "Если в них нет ответа, скажи: «В моей библиотеке нет ответа».\n\n"
@@ -128,10 +131,12 @@ def ask_model(prompt, model=MODEL):
     return response.json()["message"]["content"].strip()
 
 
-def answer(question, library=None, model=MODEL, k=TOP_K):
-    """Отвечает на вопрос. Если library=None — нейросеть отвечает «по памяти»."""
+def answer(question, library=None, model=MODEL, k=TOP_K, allow_unknown=True):
+    """Отвечает на вопрос. Если library=None — нейросеть отвечает «по памяти».
+    allow_unknown=False — без библиотеки не разрешаем говорить «не знаю»."""
     if library is None:
-        return ask_model(PROMPT_NO_LIBRARY.format(question=question), model), []
+        template = PROMPT_NO_LIBRARY if allow_unknown else PROMPT_PLAIN
+        return ask_model(template.format(question=question), model), []
     found = library.search(question, k=k)
     fragments = "\n\n".join(
         f"[{i}] {c['source']} — {c['section']}:\n{c['text']}" for i, c in enumerate(found, 1))

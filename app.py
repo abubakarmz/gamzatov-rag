@@ -24,6 +24,8 @@ library = get_library()
 with st.sidebar:
     model = st.selectbox("Нейросеть", MODELS_FOR_EXPERIMENT, index=MODELS_FOR_EXPERIMENT.index(MODEL))
     use_library = st.toggle("Подглядывать в библиотеку (RAG)", value=True)
+    # Без библиотеки по умолчанию задаём просто вопрос, как обычному чат-боту
+    allow_unknown = st.toggle("Разрешить ответ «Я не знаю»", value=False, disabled=use_library)
     st.write(f"Карточек в библиотеке: {len(library.chunks)}")
 
 if "history" not in st.session_state:
@@ -36,7 +38,7 @@ question = st.chat_input("Например: кто написал музыку �
 if question:
     st.chat_message("user").markdown(question)
     with st.spinner("Ищу в библиотеке и думаю..."):
-        reply, cards = answer(question, library if use_library else None, model)
+        reply, cards = answer(question, library if use_library else None, model, allow_unknown=allow_unknown)
     if cards:
         reply += "\n\n**Источники:**\n" + "\n".join(
             f"- [{c['source']} — {c['section']}]({c['url']})" for c in cards)
