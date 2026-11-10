@@ -42,5 +42,5 @@ TOP_K = 3  # сколько карточек отдавать нейросети
 
 # Нейросеть (запускается локально через программу Ollama)
 OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "qwen2.5:1.5b"
-MODELS_FOR_EXPERIMENT = ["qwen2.5:1.5b", "llama3.2:3b"]
+MODEL = "qwen2.5:1.5b"  # маленькая модель (~1 ГБ), работает на обычном ноутбуке с 8 ГБ памяти
+MODELS_FOR_EXPERIMENT = [MODEL]

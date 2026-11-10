@@ -1,7 +1,8 @@
 """
 Шаг 4. Эксперименты для исследования.
 
-  Эксперимент 1. «Экзамен без книги»: нейросеть отвечает на 50 вопросов по памяти.
+  Эксперимент 1. «Экзамен без книги»: нейросеть отвечает на 50 вопросов по памяти,
+                 в двух вариантах: просто вопрос (как обычный чат-бот) и с разрешением сказать «не знаю».
   Эксперимент 2. «Поиск нужной страницы»: сравниваем три способа поиска карточек.
   Эксперимент 3. «Экзамен с открытой книгой»: нейросеть отвечает, подглядывая в библиотеку (RAG).
 
@@ -10,10 +11,10 @@
 
 Запуск:
   python step4_experiments.py search    — только эксперимент 2 (быстро)
-  python step4_experiments.py answers   — эксперименты 1 и 3 (долго: нейросеть отвечает 200 раз)
+  python step4_experiments.py answers   — эксперименты 1 и 3 (долго: нейросеть отвечает 150 раз)
   python step4_experiments.py report    — таблицы и графики по уже готовым результатам
   python step4_experiments.py           — всё по очереди
-  добавьте --quick, чтобы взять 15 вопросов и одну модель (около 10 минут)
+  добавьте --quick, чтобы взять только 15 вопросов (около 10 минут)
 """
 import csv
 import json
@@ -38,7 +39,8 @@ REFUSALS = ["не знаю", "нет ответа", "нет информации
             "не имеет ответа"]
 
 RESULT_NAMES = {"correct": "Верно", "refusal": "«Не знаю»", "wrong": "Ошибка (выдумка)"}
-MODE_NAMES = {"memory": "без библиотеки", "rag": "с библиотекой"}
+MODE_NAMES = {"plain": "просто вопрос", "memory": "можно «не знаю»", "rag": "с библиотекой"}
+MODES = list(MODE_NAMES)
 
 
 def normalize(text):
@@ -60,10 +62,10 @@ def grade(reply, question):
     return "refusal" if refused else "wrong"
 
 
-# Быстрый режим (--quick): 15 вопросов и одна модель — когда мало времени
+# Быстрый режим (--quick): 15 вопросов — когда мало времени
 QUICK_IDS = {1, 3, 5, 7, 15, 20, 22, 23, 30, 33, 36, 42, 46, 48, 50}
 QUICK = "--quick" in sys.argv
-MODELS = MODELS_FOR_EXPERIMENT[:1] if QUICK else MODELS_FOR_EXPERIMENT
+MODELS = MODELS_FOR_EXPERIMENT
 
 
 def load_questions():
@@ -116,12 +118,13 @@ def run_answer_experiments():
         if new_file:
             writer.writeheader()
         for model in MODELS:
-            for mode in ("memory", "rag"):
+            for mode in MODES:
                 for q in questions:
                     if (model, mode, str(q["id"])) in done:
                         continue
                     start = time.time()
-                    reply, cards = answer(q["question"], library if mode == "rag" else None, model, TOP_K)
+                    reply, cards = answer(q["question"], library if mode == "rag" else None, model, TOP_K,
+                                          allow_unknown=mode != "plain")
                     seconds = round(time.time() - start, 1)
                     result = grade(reply, q)
                     writer.writerow({
@@ -190,7 +193,7 @@ def summarize_answers(rows):
     """Считает верные / «не знаю» / ошибки для каждой модели и режима."""
     summary = []
     for model in MODELS:
-        for mode in ("memory", "rag"):
+        for mode in MODES:
             part = [r for r in rows if r["model"] == model and r["mode"] == mode]
             if not part:
                 continue
@@ -231,16 +234,16 @@ def chart_answers(summary):
 
 
 def chart_topics(rows):
-    """Доля верных ответов по темам: без библиотеки и с библиотекой (обе модели вместе)."""
+    """Доля верных ответов по темам в каждом режиме."""
     topics = ["Биография", "Награды", "Журавли", "Произведения", "Память"]
     fig, ax = plt.subplots(figsize=(8, 4), dpi=200)
-    width = 0.38
-    for i, (mode, color) in enumerate((("memory", "#86b6ef"), ("rag", "#1c5cab"))):
+    width = 0.27
+    for i, (mode, color) in enumerate((("plain", "#c9c2b4"), ("memory", "#86b6ef"), ("rag", "#1c5cab"))):
         values = []
         for t in topics:
             part = [r for r in rows if r["topic"] == t and r["mode"] == mode]
             values.append(round(100 * sum(r["result"] == "correct" for r in part) / len(part)) if part else 0)
-        xs = [x + (i - 0.5) * (width + 0.02) for x in range(len(topics))]
+        xs = [x + (i - 1) * (width + 0.02) for x in range(len(topics))]
         bars = ax.bar(xs, values, width, color=color, label=MODE_NAMES[mode].capitalize())
         for bar, v in zip(bars, values):
             ax.text(bar.get_x() + bar.get_width() / 2, v + 1.5, f"{v}%", ha="center", fontsize=9, color=INK)
@@ -250,7 +253,7 @@ def chart_topics(rows):
     ax.set_ylabel("Верных ответов, %", color=MUTED)
     ax.yaxis.grid(True, color=GRID, linewidth=0.8)
     style_axes(ax)
-    ax.legend(frameon=False, loc="upper left", ncol=2, fontsize=9)
+    ax.legend(frameon=False, loc="upper left", ncol=3, fontsize=9)
     fig.tight_layout()
     fig.savefig(CHARTS_DIR / "chart_topics.png")
     plt.close(fig)
@@ -263,6 +266,10 @@ def make_report():
     if ANSWERS_FILE.exists():
         ids = {str(q["id"]) for q in load_questions()}
         rows = [r for r in read_csv(ANSWERS_FILE) if r["id"] in ids and r["model"] in MODELS]
+        # Оцениваем все ответы заново по текущим правилам, чтобы правила были одни для всех
+        by_id = {str(q["id"]): q for q in load_questions()}
+        for r in rows:
+            r["result"] = grade(r["reply"], by_id[r["id"]])
         summary = summarize_answers(rows)
         write_csv(RESULTS_DIR / "summary.csv", summary)
         chart_answers(summary)

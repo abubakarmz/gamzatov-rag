@@ -7,7 +7,7 @@
 """
 import streamlit as st
 
-from config import MODEL, MODELS_FOR_EXPERIMENT
+from config import MODEL
 from rag import Library, answer
 
 st.set_page_config(page_title="Помощник по Гамзатову", page_icon="🕊️")
@@ -22,7 +22,7 @@ def get_library():
 
 library = get_library()
 with st.sidebar:
-    model = st.selectbox("Нейросеть", MODELS_FOR_EXPERIMENT, index=MODELS_FOR_EXPERIMENT.index(MODEL))
+    model = MODEL  # qwen2.5:1.5b — маленькая модель, хватает ноутбука с 8 ГБ памяти
     use_library = st.toggle("Подглядывать в библиотеку (RAG)", value=True)
     # Без библиотеки по умолчанию задаём просто вопрос, как обычному чат-боту
     allow_unknown = st.toggle("Разрешить ответ «Я не знаю»", value=False, disabled=use_library)
