@@ -4,4 +4,3 @@ __pycache__/
 docs/Как_это_работает.pdf
 research/results/answers_log.txt
 .claude/
-tutorial/build/
